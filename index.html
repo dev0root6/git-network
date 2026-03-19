@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Repo Universe</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Space Mono',monospace}
+canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
+
+/* ── URL BAR ── */
+#url-bar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);display:flex;gap:8px;width:min(560px,88vw);z-index:100;background:rgba(3,1,14,0.88);border:1px solid rgba(130,110,255,0.28);border-radius:32px;padding:7px 8px 7px 18px;backdrop-filter:blur(16px)}
+#url-input{flex:1;background:transparent;border:none;color:#c4b5fd;font-size:12px;font-family:'Space Mono',monospace;outline:none}
+#url-input::placeholder{color:rgba(130,110,200,0.32)}
+#load-btn{background:rgba(108,99,255,0.2);border:1px solid rgba(108,99,255,0.45);border-radius:24px;padding:7px 18px;color:#a78bfa;font-size:11px;cursor:pointer;font-family:'Space Mono',monospace;transition:all .18s;white-space:nowrap}
+#load-btn:hover{background:rgba(108,99,255,0.4)}
+
+/* ── TOAST ── */
+#toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);background:rgba(3,1,14,0.95);border:1px solid rgba(130,110,255,0.28);border-radius:20px;padding:7px 18px;color:#a78bfa;font-size:11px;display:none;pointer-events:none;backdrop-filter:blur(12px);letter-spacing:.4px;z-index:200}
+
+/* ── HUD ── */
+#hud{position:fixed;top:18px;left:20px;pointer-events:none;z-index:50}
+#hud-title{font-size:14px;font-weight:700;color:#c4b5fd;letter-spacing:-.2px}
+#hud-sub{font-size:9px;color:rgba(130,110,200,0.45);margin-top:2px;letter-spacing:.8px}
+
+/* ── CONTROLS ── */
+#ctrl{position:fixed;bottom:72px;right:18px;color:rgba(100,80,180,0.38);font-size:9px;letter-spacing:.5px;line-height:2.2;text-align:right;pointer-events:none;z-index:50}
+
+/* ── ESC BANNER ── */
+#esc-banner{display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(3,1,16,0.72);border:1px solid rgba(130,110,255,0.22);border-radius:14px;padding:11px 26px;color:rgba(160,140,255,0.7);font-size:11px;letter-spacing:1px;backdrop-filter:blur(10px);pointer-events:none;align-items:center;gap:10px;z-index:60}
+#esc-banner span{font-size:9px;background:rgba(108,99,255,0.2);border:1px solid rgba(108,99,255,0.35);border-radius:6px;padding:3px 8px;color:#a78bfa}
+
+/* ── LEGEND ── */
+#legend{position:fixed;top:18px;right:18px;background:rgba(3,1,14,0.72);border:1px solid rgba(100,80,200,0.14);border-radius:10px;padding:10px 14px;pointer-events:none;backdrop-filter:blur(8px);z-index:50}
+.leg{display:flex;align-items:center;gap:7px;font-size:9px;color:rgba(140,120,200,0.55);margin-bottom:4px;letter-spacing:.5px}
+.leg:last-child{margin-bottom:0}
+.leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+
+
+/* ── TREE PANEL ── */
+#tree-panel{position:fixed;left:0;top:0;height:100%;width:240px;background:rgba(2,1,10,0.92);border-right:1px solid rgba(108,99,255,0.14);transform:translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:80;display:flex;flex-direction:column;backdrop-filter:blur(16px)}
+#tree-panel.open{transform:translateX(0)}
+#tree-header{padding:16px 14px 10px;border-bottom:1px solid rgba(108,99,255,0.1);flex-shrink:0}
+#tree-header-title{font-size:11px;color:#a78bfa;font-weight:700;letter-spacing:.3px;margin-bottom:2px}
+#tree-header-sub{font-size:9px;color:#3a2a60;letter-spacing:.6px}
+#tree-close{position:absolute;top:12px;right:12px;background:rgba(108,99,255,0.1);border:1px solid rgba(108,99,255,0.2);border-radius:50%;width:24px;height:24px;color:#a78bfa;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#tree-close:hover{background:rgba(108,99,255,0.28)}
+#tree-body{flex:1;overflow-y:auto;padding:8px 0;scrollbar-width:thin;scrollbar-color:rgba(108,99,255,0.2) transparent}
+.tree-node{display:flex;align-items:center;gap:6px;padding:4px 14px;font-size:10px;cursor:pointer;transition:background .1s;color:#5848a0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tree-node:hover{background:rgba(108,99,255,0.12);color:#c4b5fd}
+.tree-node.dir{color:#8878d0}
+.tree-node.root{color:#c4b5fd;font-weight:700;font-size:11px;padding:6px 14px}
+.tree-node .tn-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.tree-node .tn-name{overflow:hidden;text-overflow:ellipsis}
+#tree-toggle{position:fixed;left:18px;bottom:72px;background:rgba(3,1,14,0.85);border:1px solid rgba(108,99,255,0.3);border-radius:10px;padding:7px 12px;color:#a78bfa;font-size:10px;cursor:pointer;z-index:90;backdrop-filter:blur(8px);transition:all .18s;letter-spacing:.4px}
+#tree-toggle:hover{background:rgba(108,99,255,0.25)}
+
+/* ── INFO PANEL ── */
+#panel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0.9);width:min(500px,90vw);max-height:80vh;background:rgba(3,1,16,0.97);border:1px solid rgba(130,110,255,0.2);border-radius:18px;padding:24px;overflow-y:auto;opacity:0;transition:all .35s cubic-bezier(.34,1.56,.64,1);pointer-events:none;z-index:150;scrollbar-width:thin;scrollbar-color:rgba(108,99,255,0.25) transparent}
+#panel.open{opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:all}
+#panel-close{position:absolute;top:12px;right:14px;background:rgba(108,99,255,0.1);border:1px solid rgba(108,99,255,0.25);border-radius:50%;width:28px;height:28px;color:#a78bfa;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#panel-close:hover{background:rgba(108,99,255,0.28)}
+.p-name{font-size:17px;font-weight:700;color:#e0d8ff;margin-bottom:2px}
+.p-path{font-size:9px;color:#3a2a60;margin-bottom:12px;letter-spacing:.8px}
+.p-desc{font-size:11px;color:#6858a0;line-height:1.7;margin-bottom:12px}
+.s-label{font-size:8px;letter-spacing:2px;color:#3a2a60;text-transform:uppercase;margin-bottom:6px;margin-top:12px}
+.stat-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}
+.stat{background:rgba(108,99,255,0.08);border:1px solid rgba(108,99,255,0.14);border-radius:16px;padding:3px 10px;font-size:9px;color:#7868b0}
+.lang-bar{display:flex;height:4px;border-radius:2px;overflow:hidden;gap:1px;margin-bottom:5px}
+.lang-seg{height:100%}
+.lang-legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.lang-dot{font-size:9px;color:#5848a0;display:flex;align-items:center;gap:4px}
+.lang-dot i{width:6px;height:6px;border-radius:50%;display:inline-block;font-style:normal}
+.file-list{display:flex;flex-direction:column;gap:2px;max-height:160px;overflow-y:auto;margin-bottom:10px;scrollbar-width:thin;scrollbar-color:rgba(108,99,255,0.15) transparent}
+.f-row{display:flex;align-items:center;gap:7px;padding:4px 8px;border-radius:6px;background:rgba(108,99,255,0.04);font-size:10px}
+.f-row.dir{color:#a78bfa}.f-row.file{color:#5848a0}
+.f-ext{font-size:8px;padding:1px 5px;border-radius:6px;background:rgba(108,99,255,0.1);color:#6858a0;margin-left:auto}
+.commit-list{display:flex;flex-direction:column;gap:3px;max-height:160px;overflow-y:auto;scrollbar-width:thin}
+.commit-row{padding:6px 10px;border-radius:7px;background:rgba(108,99,255,0.04);border-left:2px solid rgba(108,99,255,0.22)}
+.commit-msg{font-size:10px;color:#8878c0;margin-bottom:2px;line-height:1.4}
+.commit-meta{font-size:8px;color:#3a2a60;letter-spacing:.3px}
+.release-row{padding:6px 10px;border-radius:7px;background:rgba(30,200,120,0.04);border-left:2px solid rgba(30,200,120,0.22);margin-bottom:3px}
+.release-tag{font-size:12px;color:#22d3a0;font-weight:700;margin-bottom:2px}
+.release-meta{font-size:8px;color:#2a5040;letter-spacing:.3px}
+.gh-link{display:inline-block;margin-top:12px;font-size:10px;color:#6C63FF;text-decoration:none;border-bottom:1px solid rgba(108,99,255,0.22);padding-bottom:1px}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(108,99,255,0.2);border-radius:2px}
+
+/* ── CROSSHAIR ── */
+#crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;display:none;z-index:55}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:rgba(180,160,255,0.4)}
+#crosshair::before{width:1px;height:14px;left:50%;transform:translateX(-50%);top:-7px}
+#crosshair::after{height:1px;width:14px;top:50%;transform:translateY(-50%);left:-7px}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud"><div id="hud-title">repo universe</div><div id="hud-sub">paste a github url to begin</div></div>
+<div id="legend">
+  <div class="leg"><div class="leg-dot" style="background:#6C63FF"></div>directory</div>
+  <div class="leg"><div class="leg-dot" style="background:#38bdf8"></div>file</div>
+  <div class="leg"><div class="leg-dot" style="background:#22d3a0"></div>release</div>
+  <div class="leg"><div class="leg-dot" style="background:#fbbf24"></div>commit</div>
+  <div class="leg"><div class="leg-dot" style="background:#ffe080;width:12px;height:12px"></div>root</div>
+</div>
+<div id="toast"></div>
+<div id="esc-banner"><span>ESC</span> release mouse · click nodes</div>
+<div id="crosshair"></div>
+<div id="ctrl">WASD · fly<br>mouse · look<br>dbl-click · warp<br>scroll · speed<br>ESC · pointer</div>
+
+
+
+<button id="tree-toggle" onclick="toggleTree()">tree</button>
+<div id="tree-panel">
+  <div id="tree-header">
+    <div id="tree-header-title">file tree</div>
+    <div id="tree-header-sub">click to warp</div>
+    <button id="tree-close" onclick="toggleTree()">×</button>
+  </div>
+  <div id="tree-body"></div>
+</div>
+
+<div id="url-bar">
+  <input id="url-input" type="text" placeholder="https://github.com/user/repo" spellcheck="false"/>
+  <button id="load-btn">load repo</button>
+</div>
+
+<div id="panel">
+  <button id="panel-close">×</button>
+  <div id="panel-content"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ─── Renderer ───────────────────────────────────────────────────────────────
+const cv=document.getElementById('cv');
+const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setClearColor(0x000005);
+const scene=new THREE.Scene();
+scene.fog=new THREE.FogExp2(0x000008,0.0032);
+const camera=new THREE.PerspectiveCamera(70,1,0.05,1200);
+camera.position.set(0,0,30);
+function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
+resize();window.addEventListener('resize',resize);
+
+// ─── Lighting ────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0x111022,3));
+const ptLight=new THREE.PointLight(0xffffff,2,300);scene.add(ptLight);
+const rimLight=new THREE.PointLight(0x4422ff,1.5,200);rimLight.position.set(0,60,0);scene.add(rimLight);
+
+// ─── Stars ───────────────────────────────────────────────────────────────────
+function makeStars(n,spread,sz,op){
+  const g=new THREE.BufferGeometry(),p=new Float32Array(n*3);
+  for(let i=0;i<n*3;i++)p[i]=(Math.random()-.5)*spread;
+  g.setAttribute('position',new THREE.BufferAttribute(p,3));
+  return new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:sz,transparent:true,opacity:op,sizeAttenuation:true}));
+}
+scene.add(makeStars(7000,900,0.32,0.72));
+scene.add(makeStars(2000,500,0.14,0.38));
+scene.add(makeStars(600,200,0.06,0.22));
+// Milky way band
+const mwG=new THREE.BufferGeometry(),mwP=new Float32Array(4000*3);
+for(let i=0;i<4000;i++){const a=Math.random()*Math.PI*2,r=180+Math.random()*130,s=(Math.random()-.5)*35;mwP[i*3]=Math.cos(a)*r;mwP[i*3+1]=s+Math.sin(a)*18;mwP[i*3+2]=Math.sin(a)*r;}
+mwG.setAttribute('position',new THREE.BufferAttribute(mwP,3));
+const mw=new THREE.Points(mwG,new THREE.PointsMaterial({color:0x9988ff,size:0.2,transparent:true,opacity:0.16,sizeAttenuation:true}));
+mw.rotation.x=0.38;scene.add(mw);
+
+// ─── Proc texture ────────────────────────────────────────────────────────────
+function procTex(c1,c2,sz=64){
+  const cv2=document.createElement('canvas');cv2.width=cv2.height=sz;
+  const ctx=cv2.getContext('2d'),id=ctx.createImageData(sz,sz);
+  const r1=(c1>>16)&255,g1=(c1>>8)&255,b1=c1&255;
+  const r2=(c2>>16)&255,g2=(c2>>8)&255,b2=c2&255;
+  for(let i=0;i<sz*sz;i++){
+    const x=i%sz,y=Math.floor(i/sz);
+    const n=(Math.sin(x*.9+y*.4)*.5+Math.cos(x*.35-y*.8)*.5)*.5+.5;
+    const n2=(Math.sin(x*2.2+y*1.4+2)*.3+.5);
+    const t=n*n2;
+    id.data[i*4]=r1+(r2-r1)*t;id.data[i*4+1]=g1+(g2-g1)*t;id.data[i*4+2]=b1+(b2-b1)*t;id.data[i*4+3]=255;
+  }
+  ctx.putImageData(id,0,0);
+  return new THREE.CanvasTexture(cv2);
+}
+
+// ─── Node system ─────────────────────────────────────────────────────────────
+const LANG_COLORS={'JavaScript':'#f7df1e','TypeScript':'#3178c6','Python':'#3572A5','Go':'#00ADD8','C':'#888','C++':'#f34b7d','Rust':'#dea584','Shell':'#89e051','HTML':'#e34c26','CSS':'#563d7c','SCSS':'#c6538c','Vue':'#42b883','Svelte':'#ff3e00','Kotlin':'#7f52ff','Swift':'#f05138','Java':'#b07219','Ruby':'#701516','PHP':'#4F5D95','Makefile':'#427819','Dockerfile':'#384d54'};
+const NODE_CFG={
+  root:{r:2.0,col:0xffe080,emit:0xcc8800,hasHalo:true},
+  dir: {r:0.6,col:0x6C63FF,emit:0x2a1a88,hasHalo:true},
+  file:{r:0.22,col:0x38bdf8,emit:0x0a3060,hasHalo:false},
+  commit:{r:0.28,col:0xfbbf24,emit:0x7a4a00,hasHalo:false},
+  release:{r:0.42,col:0x22d3a0,emit:0x0a4030,hasHalo:true}
+};
+
+let nodes=[],edges=[],edgeLineObj=null,repoMeta=null;
+
+function clearGraph(){
+  nodes.forEach(n=>{scene.remove(n.mesh);if(n.labelSprite)scene.remove(n.labelSprite);});
+  if(edgeLineObj)scene.remove(edgeLineObj);
+  nodes=[];edges=[];edgeLineObj=null;
+  document.getElementById('tree-body').innerHTML='';
+}
+
+function makeLabel(text){
+  const c=document.createElement('canvas');c.width=256;c.height=56;
+  const ctx=c.getContext('2d');
+  ctx.font='bold 18px monospace';ctx.fillStyle='rgba(180,160,255,0.85)';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(text.length>22?text.slice(0,20)+'…':text,128,28);
+  const t=new THREE.CanvasTexture(c);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false}));
+  sp.scale.set(3.5,0.88,1);return sp;
+}
+
+function spawnNode(type,data,position){
+  const cfg=NODE_CFG[type]||NODE_CFG.file;
+  let radius=cfg.r;
+  // Scale file nodes by size
+  if(type==='file'&&data.item?.size) radius=Math.max(0.15,Math.min(0.45,cfg.r+data.item.size/500000));
+  const geo=(type==='file'||type==='commit')?new THREE.IcosahedronGeometry(radius,1):new THREE.SphereGeometry(radius,24,24);
+  const tex=(type==='root'||type==='dir')?procTex(cfg.col,cfg.emit):null;
+  const mat=new THREE.MeshStandardMaterial({color:cfg.col,emissive:cfg.emit,emissiveIntensity:type==='root'?2.5:type==='release'?1.2:0.55,roughness:type==='file'?0.85:0.4,metalness:type==='dir'?0.45:0.1,map:tex});
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.position.copy(position);
+  // Store base size for pulse
+  mesh.userData.baseScale=1;
+  mesh.userData.pulsePhase=Math.random()*Math.PI*2;
+  mesh.userData.pulseAmp=type==='file'?(0.04+Math.random()*0.08):0.06;
+  scene.add(mesh);
+  if(cfg.hasHalo){
+    const hm=new THREE.Mesh(new THREE.SphereGeometry(radius*1.9,12,12),new THREE.MeshBasicMaterial({color:cfg.col,transparent:true,opacity:0.055,side:THREE.BackSide}));
+    mesh.add(hm);
+  }
+  const label=makeLabel(data.name||data.sha?.slice(0,8)||'node');
+  label.position.copy(position);label.position.y+=radius+0.6;scene.add(label);
+  const vel=new THREE.Vector3((Math.random()-.5)*0.002,(Math.random()-.5)*0.002,(Math.random()-.5)*0.002);
+  const nd={mesh,labelSprite:label,type,data,position:position.clone(),velocity:vel,basePos:position.clone(),connections:[]};
+  nodes.push(nd);return nd;
+}
+
+function buildEdges(){
+  if(edgeLineObj)scene.remove(edgeLineObj);
+  const pos=[],col=[];
+  edges.forEach(([a,b,c])=>{
+    const cc=new THREE.Color(c||0x443366);
+    pos.push(a.x,a.y,a.z,b.x,b.y,b.z);
+    col.push(cc.r,cc.g,cc.b,cc.r*.6,cc.g*.6,cc.b*.6);
+  });
+  if(!pos.length)return;
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
+  g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(col),3));
+  edgeLineObj=new THREE.LineSegments(g,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0.55}));
+  scene.add(edgeLineObj);
+}
+
+function randomPos(cx,cy,cz,minR,maxR){
+  const th=Math.random()*Math.PI*2,ph=Math.acos(Math.random()*2-1),r=minR+Math.random()*(maxR-minR);
+  return new THREE.Vector3(cx+r*Math.sin(ph)*Math.cos(th),cy+r*Math.sin(ph)*Math.sin(th),cz+r*Math.cos(ph));
+}
+
+// ─── Trail system ────────────────────────────────────────────────────────────
+const TRAIL_MAX=80;
+const trailPositions=new Float32Array(TRAIL_MAX*3);
+const trailColors=new Float32Array(TRAIL_MAX*3);
+const trailGeo=new THREE.BufferGeometry();
+trailGeo.setAttribute('position',new THREE.BufferAttribute(trailPositions,3));
+trailGeo.setAttribute('color',new THREE.BufferAttribute(trailColors,3));
+trailGeo.setDrawRange(0,0);
+const trailLine=new THREE.Line(trailGeo,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0.55,depthWrite:false}));
+scene.add(trailLine);
+let trailIdx=0,trailCount=0,lastTrailPos=new THREE.Vector3();
+function updateTrail(){
+  const p=camera.position;
+  if(p.distanceTo(lastTrailPos)<0.4)return;
+  lastTrailPos.copy(p);
+  const i=trailIdx%TRAIL_MAX;
+  trailPositions[i*3]=p.x;trailPositions[i*3+1]=p.y;trailPositions[i*3+2]=p.z;
+  trailColors[i*3]=0.5;trailColors[i*3+1]=0.35;trailColors[i*3+2]=1.0;
+  trailIdx++;trailCount=Math.min(trailCount+1,TRAIL_MAX);
+  // Fade older points
+  for(let j=0;j<trailCount;j++){
+    const age=trailCount-j;
+    const fade=Math.max(0,1-age/TRAIL_MAX);
+    const ki=((trailIdx-1-j+TRAIL_MAX)%TRAIL_MAX);
+    trailColors[ki*3]=0.4*fade;trailColors[ki*3+1]=0.25*fade;trailColors[ki*3+2]=fade;
+  }
+  trailGeo.attributes.position.needsUpdate=true;
+  trailGeo.attributes.color.needsUpdate=true;
+  trailGeo.setDrawRange(0,trailCount);
+}
+
+// ─── Fetch & build ───────────────────────────────────────────────────────────
+function showToast(msg,dur=2800){const el=document.getElementById('toast');el.textContent=msg;el.style.display='block';clearTimeout(el._t);el._t=setTimeout(()=>el.style.display='none',dur);}
+function parseUrl(url){const c=url.trim().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/^github\.com\//,'');const p=c.split('/').filter(Boolean);if(p.length>=2)return{owner:p[0],repo:p[1].replace(/\.git$/,'')};return null;}
+
+async function loadRepo(url){
+  const parsed=parseUrl(url);if(!parsed)return showToast('invalid github url');
+  showToast('fetching repo…',8000);clearGraph();
+  document.getElementById('hud-title').textContent=`${parsed.owner}/${parsed.repo}`;
+  document.getElementById('hud-sub').textContent='loading…';
+  try{
+    const [mR,lR,cR,rR]=await Promise.all([
+      fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}`),
+      fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/languages`),
+      fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits?per_page=15`),
+      fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/releases?per_page=8`)
+    ]);
+    if(!mR.ok)return showToast('repo not found or private');
+    const meta=await mR.json(),langs=lR.ok?await lR.json():{},commits=cR.ok?await cR.json():[],releases=rR.ok?await rR.json():[];
+    const branch=meta.default_branch||'main';
+    const tR=await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/git/trees/${branch}?recursive=1`);
+    if(!tR.ok)return showToast('could not fetch tree');
+    const treeData=await tR.json();
+    const items=(treeData.tree||[]).slice(0,300);
+    let readme='';
+    try{const ri=items.find(i=>i.path.toLowerCase()==='readme.md');if(ri){const rb=await fetch(`https://raw.githubusercontent.com/${parsed.owner}/${parsed.repo}/${branch}/README.md`);if(rb.ok){const t=await rb.text();readme=t.replace(/```[\s\S]*?```/g,'[code]').replace(/!\[.*?\]\(.*?\)/g,'').replace(/#{1,6}\s+/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').replace(/\n{3,}/g,'\n\n').trim().slice(0,500);}}}catch(e){}
+    repoMeta={...meta,langs,commits,releases,readme,owner:parsed.owner,repo:parsed.repo,branch};
+    buildGraph(items,repoMeta);
+    document.getElementById('hud-title').textContent=meta.full_name;
+    document.getElementById('hud-sub').textContent=`${items.filter(i=>i.type==='blob').length} files · ${items.filter(i=>i.type==='tree').length} dirs · ★${meta.stargazers_count}`;
+    document.getElementById('tree-header-title').textContent=meta.name;
+    showToast(`graph built — ${nodes.length} nodes`);
+    document.getElementById('url-input').value='';
+    camera.position.set(0,0,30);yaw=0;pitch=0;
+  }catch(e){showToast('fetch failed — check url');console.error(e);}
+}
+
+function buildGraph(items,meta){
+  const rootPos=new THREE.Vector3(0,0,0);
+  const rootN=spawnNode('root',{name:meta.name,meta},rootPos);
+  const nodeMap={'':rootN};
+  const treeBody=document.getElementById('tree-body');
+
+  // Tree panel root entry
+  const rootEl=document.createElement('div');
+  rootEl.className='tree-node root';
+  rootEl.innerHTML=`<div class="tn-dot" style="background:#ffe080;width:8px;height:8px;border-radius:50%"></div><div class="tn-name">${meta.name}</div>`;
+  rootEl.onclick=()=>{warpTo(rootN.position);toggleTree();};
+  treeBody.appendChild(rootEl);
+
+  const sorted=[...items].sort((a,b)=>{const da=a.path.split('/').length,db=b.path.split('/').length;if(da!==db)return da-db;if(a.type!==b.type)return a.type==='tree'?-1:1;return 0;});
+
+  sorted.forEach(item=>{
+    const parts=item.path.split('/');
+    const parentPath=parts.slice(0,-1).join('/');
+    const parentNode=nodeMap[parentPath]||rootN;
+    const pPos=parentNode.position;
+    const depth=parts.length;
+    const minR=depth===1?22:depth===2?12:6;
+    const maxR=depth===1?45:depth===2?26:14;
+    const pos=randomPos(pPos.x,pPos.y,pPos.z,minR,maxR);
+    const type=item.type==='tree'?'dir':'file';
+    const name=parts[parts.length-1];
+    const n=spawnNode(type,{name,path:item.path,item,parentPath},pos);
+    nodeMap[item.path]=n;
+    edges.push([pPos.clone(),pos.clone(),type==='dir'?0x4433aa:0x1a3a6a]);
+
+    // Tree panel entry
+    const el=document.createElement('div');
+    el.className=`tree-node ${type}`;
+    const indent=Math.min((depth-1)*10,60);
+    const dotCol=type==='dir'?'#6C63FF':'#38bdf8';
+    el.style.paddingLeft=`${14+indent}px`;
+    el.innerHTML=`<div class="tn-dot" style="background:${dotCol}"></div><div class="tn-name">${name}</div>`;
+    el.onclick=()=>{warpTo(n.position);toggleTree();};
+    treeBody.appendChild(el);
+  });
+
+  // Commits cluster
+  const cCenter=new THREE.Vector3(-75,15,0);
+  const cAnchor=spawnNode('dir',{name:'commits'},cCenter);
+  edges.push([rootPos.clone(),cCenter.clone(),0x886600]);
+  const cEl=document.createElement('div');cEl.className='tree-node dir';cEl.innerHTML=`<div class="tn-dot" style="background:#fbbf24"></div><div class="tn-name">commits</div>`;cEl.onclick=()=>{warpTo(cAnchor.position);toggleTree();};treeBody.appendChild(cEl);
+  meta.commits.slice(0,15).forEach(c=>{
+    const pos=randomPos(cCenter.x,cCenter.y,cCenter.z,8,22);
+    const n=spawnNode('commit',{name:c.commit?.message?.split('\n')[0]?.slice(0,30)||'commit',sha:c.sha,author:c.commit?.author?.name,date:c.commit?.author?.date,message:c.commit?.message,url:c.html_url||`https://github.com/${meta.owner}/${meta.repo}/commit/${c.sha}`},pos);
+    edges.push([cCenter.clone(),pos.clone(),0x886600]);
+  });
+
+  // Releases cluster
+  if(meta.releases.length){
+    const rCenter=new THREE.Vector3(75,15,0);
+    const rAnchor=spawnNode('release',{name:'releases'},rCenter);
+    edges.push([rootPos.clone(),rCenter.clone(),0x0a6040]);
+    const rEl=document.createElement('div');rEl.className='tree-node dir';rEl.innerHTML=`<div class="tn-dot" style="background:#22d3a0"></div><div class="tn-name">releases</div>`;rEl.onclick=()=>{warpTo(rAnchor.position);toggleTree();};treeBody.appendChild(rEl);
+    meta.releases.forEach(r=>{
+      const pos=randomPos(rCenter.x,rCenter.y,rCenter.z,8,22);
+      spawnNode('release',{name:r.tag_name,title:r.name,body:r.body?.slice(0,300)||'',date:r.published_at,url:r.html_url||`https://github.com/${meta.owner}/${meta.repo}/releases/tag/${r.tag_name}`,downloads:r.assets?.reduce((s,a)=>s+a.download_count,0)||0},pos);
+      edges.push([rCenter.clone(),pos.clone(),0x0a6040]);
+    });
+  }
+
+  buildEdges();
+}
+
+// ─── Camera / flight ─────────────────────────────────────────────────────────
+let yaw=0,pitch=0,keys={},moveSpeed=10,isPointerLocked=false;
+let warpTarget=null,warpProgress=0,warpFrom=new THREE.Vector3();
+
+function warpTo(pos){
+  warpFrom.copy(camera.position);
+  warpTarget=pos.clone().add(new THREE.Vector3(0,0,5));
+  warpProgress=0;
+  if(isPointerLocked){document.exitPointerLock();}
+}
+
+document.addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Escape')document.exitPointerLock?.();});
+document.addEventListener('keyup',e=>{keys[e.code]=false;});
+
+cv.addEventListener('click',e=>{
+  if(isPointerLocked)return;
+  if(document.getElementById('panel').classList.contains('open'))return;
+  const h=getHovered(e.clientX,e.clientY);
+  if(h){openPanel(h);return;}
+  cv.requestPointerLock();
+});
+cv.addEventListener('dblclick',e=>{
+  const h=getHovered(e.clientX,e.clientY);
+  if(h){warpTo(h.position);showToast(`warping to ${h.data.name||'node'}…`,1200);}
+});
+document.addEventListener('pointerlockchange',()=>{
+  isPointerLocked=!!document.pointerLockElement;
+  document.getElementById('esc-banner').style.display=isPointerLocked?'flex':'none';
+  document.getElementById('crosshair').style.display=isPointerLocked?'block':'none';
+  document.getElementById('ctrl').style.opacity=isPointerLocked?'0.12':'0.38';
+});
+document.addEventListener('mousemove',e=>{
+  if(!isPointerLocked)return;
+  yaw-=e.movementX*.0018;pitch-=e.movementY*.0018;
+  pitch=Math.max(-1.4,Math.min(1.4,pitch));
+});
+cv.addEventListener('wheel',e=>{moveSpeed=Math.max(1,Math.min(60,moveSpeed+e.deltaY*.012));},{passive:true});
+
+function updateCamera(dt){
+  if(warpTarget){
+    warpProgress=Math.min(1,warpProgress+dt*1.6);
+    const t=warpProgress<0.5?2*warpProgress*warpProgress:1-Math.pow(-2*warpProgress+2,2)/2;
+    camera.position.lerpVectors(warpFrom,warpTarget,t);
+    if(warpProgress>=1)warpTarget=null;
+    camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;
+    return;
+  }
+  const fwd=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
+  const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+  const up=new THREE.Vector3(0,1,0);
+  const spd=moveSpeed*dt;
+  if(keys['KeyW']||keys['ArrowUp'])camera.position.addScaledVector(fwd,spd);
+  if(keys['KeyS']||keys['ArrowDown'])camera.position.addScaledVector(fwd,-spd);
+  if(keys['KeyA']||keys['ArrowLeft'])camera.position.addScaledVector(right,-spd);
+  if(keys['KeyD']||keys['ArrowRight'])camera.position.addScaledVector(right,spd);
+  if(keys['Space'])camera.position.addScaledVector(up,spd);
+  if(keys['ShiftLeft']||keys['ShiftRight'])camera.position.addScaledVector(up,-spd);
+  camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;
+}
+
+// ─── Gravity / drift ─────────────────────────────────────────────────────────
+const GRAVITY_PULL=0.00008,DRAG=0.985,WANDER=0.0004;
+function updateGravity(dt){
+  if(!nodes.length)return;
+  nodes.forEach(n=>{
+    if(n.type==='root')return;
+    // Wander
+    n.velocity.x+=(Math.random()-.5)*WANDER;
+    n.velocity.y+=(Math.random()-.5)*WANDER;
+    n.velocity.z+=(Math.random()-.5)*WANDER;
+    // Pull toward base position (soft anchor)
+    const toBase=n.basePos.clone().sub(n.mesh.position).multiplyScalar(GRAVITY_PULL*2);
+    n.velocity.add(toBase);
+    // Repel from root
+    const fromRoot=n.mesh.position.clone().normalize().multiplyScalar(GRAVITY_PULL*0.5);
+    n.velocity.add(fromRoot);
+    // Drag
+    n.velocity.multiplyScalar(DRAG);
+    // Clamp velocity
+    const spd=n.velocity.length();
+    if(spd>0.05)n.velocity.multiplyScalar(0.05/spd);
+    // Apply
+    n.mesh.position.add(n.velocity);
+    n.position.copy(n.mesh.position);
+    if(n.labelSprite){
+      n.labelSprite.position.copy(n.mesh.position);
+      n.labelSprite.position.y+=0.7;
+    }
+  });
+  // Rebuild edges periodically
+  if(Math.floor(clock.elapsedTime*10)%8===0) rebuildEdgePositions();
+}
+
+function rebuildEdgePositions(){
+  if(!edgeLineObj||!edges.length)return;
+  const pos=edgeLineObj.geometry.attributes.position;
+  let idx=0;
+  edges.forEach(([a,b])=>{
+    pos.array[idx++]=a.x;pos.array[idx++]=a.y;pos.array[idx++]=a.z;
+    pos.array[idx++]=b.x;pos.array[idx++]=b.y;pos.array[idx++]=b.z;
+  });
+  // Update edge arrays to current node positions
+  edges.forEach(([,],i)=>{});
+  pos.needsUpdate=true;
+}
+
+// ─── Raycaster ───────────────────────────────────────────────────────────────
+const raycaster=new THREE.Raycaster();
+const mouse2=new THREE.Vector2();
+let lastHovered=null;
+function getHovered(cx,cy){
+  mouse2.x=(cx/innerWidth)*2-1;mouse2.y=-(cy/innerHeight)*2+1;
+  raycaster.setFromCamera(mouse2,camera);
+  const hits=raycaster.intersectObjects(nodes.map(n=>n.mesh));
+  return hits.length?nodes.find(n=>n.mesh===hits[0].object):null;
+}
+document.addEventListener('mousemove',e=>{
+  if(isPointerLocked)return;
+  const h=getHovered(e.clientX,e.clientY);
+  if(h!==lastHovered){
+    if(lastHovered)lastHovered.mesh.material.emissiveIntensity=lastHovered._ei||0.55;
+    if(h){h._ei=h.mesh.material.emissiveIntensity;h.mesh.material.emissiveIntensity=Math.min(h._ei*2.8,3.5);}
+    lastHovered=h;
+  }
+  document.body.style.cursor=h?'pointer':'default';
+});
+
+// ─── Tree toggle ─────────────────────────────────────────────────────────────
+function toggleTree(){
+  document.getElementById('tree-panel').classList.toggle('open');
+}
+
+// ─── Panel ───────────────────────────────────────────────────────────────────
+function openPanel(node){
+  if(isPointerLocked){document.exitPointerLock();return;}
+  const panel=document.getElementById('panel');
+  const content=document.getElementById('panel-content');
+  const d=node.data,meta=repoMeta;let html='';
+  if(node.type==='root'||(node.type==='dir'&&!d.path)){
+    const langs=meta?.langs||{};const total=Object.values(langs).reduce((a,b)=>a+b,0)||1;
+    const lb=Object.entries(langs).map(([l,b])=>`<div class="lang-seg" style="width:${(b/total*100).toFixed(1)}%;background:${LANG_COLORS[l]||'#7c6faa'}"></div>`).join('');
+    const ll=Object.entries(langs).slice(0,8).map(([l,b])=>`<div class="lang-dot"><i style="background:${LANG_COLORS[l]||'#7c6faa'}"></i>${l} ${(b/total*100).toFixed(1)}%</div>`).join('');
+    html=`<div class="p-name">${meta?.full_name||d.name}</div><div class="p-path">root · repo</div>${meta?.description?`<div class="p-desc">${meta.description}</div>`:''}<div class="stat-row"><span class="stat">★ ${meta?.stargazers_count||0}</span><span class="stat">⑂ ${meta?.forks_count||0}</span><span class="stat">! ${meta?.open_issues_count||0}</span>${meta?.language?`<span class="stat">${meta.language}</span>`:''}</div>${lb?`<div class="s-label">languages</div><div class="lang-bar">${lb}</div><div class="lang-legend">${ll}</div>`:''} ${meta?.readme?`<div class="s-label">readme</div><div style="background:rgba(0,0,0,0.35);border:1px solid rgba(108,99,255,0.1);border-radius:8px;padding:12px;font-size:10px;color:#5848a0;line-height:1.8;max-height:130px;overflow-y:auto;white-space:pre-wrap">${meta.readme}</div>`:''}<a class="gh-link" href="https://github.com/${meta?.owner}/${meta?.repo}" target="_blank">open on github ↗</a>`;
+  }else if(node.type==='commit'){
+    html=`<div class="p-name" style="font-size:14px">${d.name}</div><div class="p-path">${d.sha?.slice(0,10)} · commit</div><div class="s-label">author</div><div style="font-size:10px;color:#6858a0;margin-bottom:8px">${d.author||'unknown'} · ${d.date?new Date(d.date).toLocaleDateString():''}</div>${d.message?`<div class="s-label">message</div><div style="font-size:10px;color:#5848a0;line-height:1.7;background:rgba(0,0,0,0.3);border-radius:8px;padding:10px;margin-bottom:10px;white-space:pre-wrap">${d.message.slice(0,400)}</div>`:''}<a class="gh-link" href="${d.url}" target="_blank">view on github ↗</a>`;
+  }else if(node.type==='release'){
+    html=`<div class="release-tag">${d.name}</div><div class="p-path">release · ${d.date?new Date(d.date).toLocaleDateString():''}</div>${d.title&&d.title!==d.name?`<div class="p-desc">${d.title}</div>`:''}<div class="stat-row"><span class="stat">↓ ${d.downloads} downloads</span></div>${d.body?`<div class="s-label">release notes</div><div style="font-size:10px;color:#3a8060;line-height:1.7;background:rgba(0,0,0,0.3);border-radius:8px;padding:10px;margin-bottom:10px;white-space:pre-wrap">${d.body}</div>`:''}<a class="gh-link" href="${d.url}" target="_blank">view release ↗</a>`;
+  }else if(node.type==='dir'){
+    const children=nodes.filter(n=>n.data.parentPath===d.path);
+    const rows=[...children.filter(n=>n.type==='dir'),...children.filter(n=>n.type==='file')].slice(0,20).map(n=>{const isDir=n.type==='dir';const nm=n.data.name||'?';const ext=nm.includes('.')&&!isDir?nm.split('.').pop():'';return`<div class="f-row ${isDir?'dir':'file'}" style="cursor:pointer" onclick="warpTo(nodes.find(x=>x.data.path==='${n.data.path}')?.position||new THREE.Vector3())">${isDir?'▸':'·'}&nbsp;${nm}${ext?`<span class="f-ext">.${ext}</span>`:''}</div>`;}).join('');
+    html=`<div class="p-name">/${d.name}</div><div class="p-path">${d.path} · directory</div><div class="stat-row"><span class="stat">${children.filter(n=>n.type==='dir').length} subdirs</span><span class="stat">${children.filter(n=>n.type==='file').length} files</span></div>${rows?`<div class="s-label">contents</div><div class="file-list">${rows}</div>`:''}<a class="gh-link" href="https://github.com/${meta?.owner}/${meta?.repo}/tree/${meta?.branch||'main'}/${d.path}" target="_blank">view on github ↗</a>`;
+  }else if(node.type==='file'){
+    const nm=d.name||d.path?.split('/').pop()||'file';const ext=nm.includes('.')?nm.split('.').pop():'';
+    html=`<div class="p-name">${nm}</div><div class="p-path">${d.path} · file${d.item?.size?` · ${(d.item.size/1024).toFixed(1)}kb`:''}</div><div class="stat-row">${ext?`<span class="stat">.${ext}</span>`:''}</div><a class="gh-link" href="https://github.com/${meta?.owner}/${meta?.repo}/blob/${meta?.branch||'main'}/${d.path}" target="_blank">view file on github ↗</a>`;
+  }else{html=`<div class="p-name">${d.name||'node'}</div><div class="p-path">${node.type}</div>`;}
+  content.innerHTML=html;panel.classList.add('open');
+}
+document.getElementById('panel-close').addEventListener('click',()=>document.getElementById('panel').classList.remove('open'));
+document.getElementById('panel').addEventListener('click',e=>{if(e.target===document.getElementById('panel'))document.getElementById('panel').classList.remove('open');});
+document.getElementById('load-btn').addEventListener('click',()=>{const v=document.getElementById('url-input').value.trim();if(v)loadRepo(v);});
+document.getElementById('url-input').addEventListener('keydown',e=>{if(e.key==='Enter'){const v=e.target.value.trim();if(v)loadRepo(v);}});
+
+
+// ─── Nebula clouds — smooth volumetric smoke ────────────────────────────────
+function makeNebulaSprite(cr,cg,cb,radius,opacity){
+  const sz=512;
+  const cv2=document.createElement('canvas');cv2.width=cv2.height=sz;
+  const ctx=cv2.getContext('2d');
+  ctx.clearRect(0,0,sz,sz);
+  // Stack many soft radial blobs — pure smooth, zero lines
+  const layers=[
+    {cx:.50,cy:.50,r:.50,a:1.0},
+    {cx:.42,cy:.46,r:.36,a:.72},
+    {cx:.58,cy:.54,r:.31,a:.65},
+    {cx:.46,cy:.38,r:.25,a:.50},
+    {cx:.54,cy:.60,r:.27,a:.55},
+    {cx:.35,cy:.55,r:.21,a:.40},
+    {cx:.63,cy:.40,r:.19,a:.42},
+    {cx:.50,cy:.50,r:.15,a:.30},
+    {cx:.48,cy:.52,r:.39,a:.28},
+  ];
+  layers.forEach(function(l){
+    const grd=ctx.createRadialGradient(l.cx*sz,l.cy*sz,0,l.cx*sz,l.cy*sz,l.r*sz);
+    const a0=(opacity*l.a).toFixed(3);
+    const a1=(opacity*l.a*0.55).toFixed(3);
+    const a2=(opacity*l.a*0.15).toFixed(3);
+    grd.addColorStop(0,'rgba('+cr+','+cg+','+cb+','+a0+')');
+    grd.addColorStop(0.3,'rgba('+cr+','+cg+','+cb+','+a1+')');
+    grd.addColorStop(0.7,'rgba('+cr+','+cg+','+cb+','+a2+')');
+    grd.addColorStop(1,'rgba('+cr+','+cg+','+cb+',0)');
+    ctx.fillStyle=grd;ctx.fillRect(0,0,sz,sz);
+  });
+  const tex=new THREE.CanvasTexture(cv2);
+  const mat=new THREE.SpriteMaterial({map:tex,transparent:true,opacity:1,depthWrite:false,blending:THREE.AdditiveBlending});
+  const sp=new THREE.Sprite(mat);sp.scale.set(radius,radius,1);return sp;
+}
+const nebulaDefs=[
+  {r:35,g:15,b:110,radius:320,op:0.22,x:-190,y:70,z:-220},
+  {r:8,g:35,b:95,radius:260,op:0.18,x:210,y:-50,z:-190},
+  {r:75,g:15,b:75,radius:240,op:0.20,x:-110,y:-90,z:160},
+  {r:15,g:65,b:55,radius:210,op:0.15,x:170,y:90,z:110},
+  {r:55,g:25,b:85,radius:300,op:0.16,x:10,y:130,z:-320},
+  {r:25,g:8, b:75,radius:180,op:0.20,x:-230,y:-40,z:60},
+  {r:8,g:45,b:85,radius:220,op:0.14,x:110,y:-110,z:-110},
+  {r:50,g:10,b:60,radius:200,op:0.18,x:-60,y:-140,z:-80},
+];
+nebulaDefs.forEach(function(n){
+  const sp=makeNebulaSprite(n.r,n.g,n.b,n.radius,n.op);
+  sp.position.set(n.x,n.y,n.z);scene.add(sp);
+});
+// ─── Animate ─────────────────────────────────────────────────────────────────
+const clock=new THREE.Clock();let t=0;
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),.05);t+=dt;
+  updateCamera(dt);
+  updateGravity(dt);
+  if(isPointerLocked)updateTrail();
+  // Pulse nodes
+  nodes.forEach(n=>{
+    n.mesh.rotation.y+=dt*(n.type==='root'?.3:n.type==='dir'?.12:.35);
+    const pulse=1+Math.sin(t*1.4+n.mesh.userData.pulsePhase)*n.mesh.userData.pulseAmp;
+    n.mesh.scale.setScalar(pulse);
+  });
+  // Dim edges if flying
+  if(edgeLineObj)edgeLineObj.material.opacity=0.45+Math.sin(t*.6)*.08;
+  ptLight.position.set(Math.sin(t*.25)*50,Math.cos(t*.18)*35,Math.sin(t*.12)*50);
+  renderer.render(scene,camera);
+}
+animate();
+</script>
+</body>
+</html>
