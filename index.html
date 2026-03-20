@@ -113,6 +113,17 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 .intro-ex{font-size:9px;padding:4px 12px;border-radius:14px;border:1px solid rgba(108,99,255,0.18);color:rgba(140,120,255,0.45);cursor:pointer;font-family:'Space Mono',monospace;transition:all .15s;letter-spacing:.4px}
 .intro-ex:hover{border-color:rgba(108,99,255,0.55);color:#a78bfa;background:rgba(108,99,255,0.1)}
 #intro-particles{position:absolute;inset:0;pointer-events:none}
+
+/* ── JOYSTICKS ── */
+#joy-container{position:fixed;bottom:90px;left:0;right:0;display:none;justify-content:space-between;padding:0 28px;pointer-events:none;z-index:90}
+.joy-wrap{position:relative;width:110px;height:110px;pointer-events:all}
+.joy-base{position:absolute;inset:0;border-radius:50%;background:rgba(108,99,255,0.08);border:1px solid rgba(108,99,255,0.22);backdrop-filter:blur(8px)}
+.joy-stick{position:absolute;width:42px;height:42px;border-radius:50%;background:rgba(108,99,255,0.35);border:1px solid rgba(160,140,255,0.5);top:50%;left:50%;transform:translate(-50%,-50%);transition:background .15s;touch-action:none}
+.joy-stick:active{background:rgba(108,99,255,0.6)}
+.joy-label{position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(108,99,255,0.4);letter-spacing:.8px;white-space:nowrap;font-family:'Space Mono',monospace}
+#joy-up-btn{position:absolute;top:-44px;right:8px;display:flex;flex-direction:column;gap:6px;pointer-events:all}
+#joy-up-btn button{background:rgba(108,99,255,0.12);border:1px solid rgba(108,99,255,0.25);border-radius:8px;color:#a78bfa;font-size:11px;padding:6px 12px;cursor:pointer;font-family:'Space Mono',monospace;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#joy-up-btn button:active{background:rgba(108,99,255,0.4)}
 </style>
 </head>
 <body>
@@ -167,6 +178,24 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
   <button id="load-btn">load repo</button>
 </div>
 
+
+<div id="joy-container">
+  <div class="joy-wrap" id="joy-left">
+    <div class="joy-base"></div>
+    <div class="joy-stick" id="joy-left-stick"></div>
+    <div class="joy-label">move</div>
+  </div>
+  <div id="joy-up-btn">
+    <button id="btn-up">▲ up</button>
+    <button id="btn-down">▼ dn</button>
+  </div>
+  <div class="joy-wrap" id="joy-right">
+    <div class="joy-base"></div>
+    <div class="joy-stick" id="joy-right-stick"></div>
+    <div class="joy-label">look</div>
+  </div>
+</div>
+
 <div id="panel">
   <button id="panel-close">×</button>
   <div id="panel-content"></div>
@@ -174,6 +203,8 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+const isMobile=/Android|iPhone|iPad|iPod|Touch/i.test(navigator.userAgent)||("ontouchstart" in window);
+const joyState={left:{x:0,y:0,active:false,touchId:null},right:{x:0,y:0,active:false,touchId:null},up:false,down:false};
 // ─── Renderer ───────────────────────────────────────────────────────────────
 const cv=document.getElementById('cv');
 const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
@@ -653,6 +684,7 @@ function animate(){
   requestAnimationFrame(animate);
   const dt=Math.min(clock.getDelta(),.05);t+=dt;
   updateCamera(dt);
+  if(isMobile)applyJoystickToCamera(dt);
   updateGravity(dt);
   if(isPointerLocked)updateTrail();
   // Pulse nodes
@@ -776,6 +808,102 @@ animate();
     });
   });
 })();
+
+
+// ─── Mobile joysticks ────────────────────────────────────────────────────────
+if(isMobile){
+  document.getElementById('joy-container').style.display='flex';
+  document.getElementById('ctrl').style.display='none';
+}
+
+
+
+function setupJoystick(wrapId,stickId,side){
+  const wrap=document.getElementById(wrapId);
+  const stick=document.getElementById(stickId);
+  const state=joyState[side];
+  const R=55; // max radius
+
+  function getCenter(){const r=wrap.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};}
+
+  wrap.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    const t=e.changedTouches[0];
+    state.touchId=t.identifier;state.active=true;
+  },{passive:false});
+
+  window.addEventListener('touchmove',e=>{
+    if(!state.active)return;
+    let t=null;
+    for(let i=0;i<e.touches.length;i++){if(e.touches[i].identifier===state.touchId){t=e.touches[i];break;}}
+    if(!t)return;
+    e.preventDefault();
+    const c=getCenter();
+    let dx=t.clientX-c.x,dy=t.clientY-c.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist>R){dx=dx/dist*R;dy=dy/dist*R;}
+    state.x=dx/R;state.y=dy/R;
+    stick.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  },{passive:false});
+
+  window.addEventListener('touchend',e=>{
+    for(let i=0;i<e.changedTouches.length;i++){
+      if(e.changedTouches[i].identifier===state.touchId){
+        state.active=false;state.touchId=null;state.x=0;state.y=0;
+        stick.style.transform='translate(-50%,-50%)';
+        break;
+      }
+    }
+  });
+}
+
+setupJoystick('joy-left','joy-left-stick','left');
+setupJoystick('joy-right','joy-right-stick','right');
+
+// Up/Down buttons
+const btnUp=document.getElementById('btn-up');
+const btnDn=document.getElementById('btn-down');
+btnUp.addEventListener('touchstart',e=>{e.preventDefault();joyState.up=true;},{passive:false});
+btnUp.addEventListener('touchend',()=>joyState.up=false);
+btnDn.addEventListener('touchstart',e=>{e.preventDefault();joyState.down=true;},{passive:false});
+btnDn.addEventListener('touchend',()=>joyState.down=false);
+
+// Tap canvas on mobile to click nodes (no pointer lock on mobile)
+cv.addEventListener('touchend',e=>{
+  if(e.changedTouches.length!==1)return;
+  const t=e.changedTouches[0];
+  const h=getHovered(t.clientX,t.clientY);
+  if(h)openPanel(h);
+});
+
+// Override updateCamera to also apply joystick input
+const _origUpdateCamera=updateCamera;
+// Patch joystick into the camera update by monkey-patching keys
+const _origKeys=keys;
+function applyJoystickToCamera(dt){
+  const L=joyState.left,R2=joyState.right;
+  // Left joystick → WASD equivalent
+  if(Math.abs(L.x)>0.08||Math.abs(L.y)>0.08){
+    const fwd=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
+    const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+    const spd=moveSpeed*dt;
+    camera.position.addScaledVector(fwd,-L.y*spd);
+    camera.position.addScaledVector(right,L.x*spd);
+  }
+  // Right joystick → look
+  if(Math.abs(R2.x)>0.06||Math.abs(R2.y)>0.06){
+    yaw-=R2.x*0.04;
+    pitch-=R2.y*0.04;
+    pitch=Math.max(-1.4,Math.min(1.4,pitch));
+  }
+  // Up/down buttons
+  if(joyState.up)camera.position.y+=moveSpeed*dt;
+  if(joyState.down)camera.position.y-=moveSpeed*dt;
+  camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;
+}
+
+// Patch animate to call joystick update
+const _origAnimate=animate;
 
 </script>
 </body>
