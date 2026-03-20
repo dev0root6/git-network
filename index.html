@@ -93,9 +93,48 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 #crosshair::before,#crosshair::after{content:'';position:absolute;background:rgba(180,160,255,0.4)}
 #crosshair::before{width:1px;height:14px;left:50%;transform:translateX(-50%);top:-7px}
 #crosshair::after{height:1px;width:14px;top:50%;transform:translateY(-50%);left:-7px}
+
+/* ── INTRO ── */
+#intro{position:fixed;inset:0;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000008;transition:opacity .8s ease}
+#intro.fade-out{opacity:0;pointer-events:none}
+#intro-canvas{position:absolute;inset:0;width:100%;height:100%}
+#intro-content{position:relative;z-index:2;text-align:center;max-width:600px;padding:0 24px}
+#intro-title{font-family:'Space Mono',monospace;font-size:clamp(28px,5vw,52px);font-weight:700;color:#fff;letter-spacing:-1px;line-height:1.1;margin-bottom:16px}
+#intro-title span{color:#6C63FF}
+#intro-sub{font-family:'Space Mono',monospace;font-size:13px;color:rgba(160,140,255,0.5);letter-spacing:1.2px;margin-bottom:48px;line-height:1.8}
+#intro-input-wrap{display:flex;gap:10px;width:100%;max-width:480px;margin:0 auto 18px;background:rgba(108,99,255,0.08);border:1px solid rgba(108,99,255,0.3);border-radius:32px;padding:8px 10px 8px 20px;backdrop-filter:blur(12px);transition:border-color .2s}
+#intro-input-wrap:focus-within{border-color:rgba(160,140,255,0.65)}
+#intro-url{flex:1;background:transparent;border:none;color:#c4b5fd;font-size:13px;font-family:'Space Mono',monospace;outline:none}
+#intro-url::placeholder{color:rgba(130,110,200,0.32)}
+#intro-btn{background:rgba(108,99,255,0.28);border:1px solid rgba(108,99,255,0.5);border-radius:24px;padding:9px 22px;color:#a78bfa;font-size:12px;cursor:pointer;font-family:'Space Mono',monospace;transition:all .18s;white-space:nowrap}
+#intro-btn:hover{background:rgba(108,99,255,0.5);color:#fff}
+#intro-hint{font-size:10px;color:rgba(108,99,255,0.3);letter-spacing:.8px;font-family:'Space Mono',monospace}
+#intro-examples{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:28px}
+.intro-ex{font-size:9px;padding:4px 12px;border-radius:14px;border:1px solid rgba(108,99,255,0.18);color:rgba(140,120,255,0.45);cursor:pointer;font-family:'Space Mono',monospace;transition:all .15s;letter-spacing:.4px}
+.intro-ex:hover{border-color:rgba(108,99,255,0.55);color:#a78bfa;background:rgba(108,99,255,0.1)}
+#intro-particles{position:absolute;inset:0;pointer-events:none}
 </style>
 </head>
 <body>
+
+<div id="intro">
+  <canvas id="intro-canvas"></canvas>
+  <div id="intro-content">
+    <div id="intro-title">repo<span>universe</span></div>
+    <div id="intro-sub">paste a github repo · explore it in 3d space<br>fly through nodes · warp between files</div>
+    <div id="intro-input-wrap">
+      <input id="intro-url" type="text" placeholder="https://github.com/user/repo" spellcheck="false" autocomplete="off"/>
+      <button id="intro-btn">explore →</button>
+    </div>
+    <div id="intro-hint">press enter or click explore</div>
+    <div id="intro-examples">
+      <div class="intro-ex" data-url="https://github.com/dev0root6/Vertex-code-IDE">dev0root6/Vertex-code-IDE</div>
+      <div class="intro-ex" data-url="https://github.com/tamdilip/emote-buddy">tamdilip/emote-buddy</div>
+      <div class="intro-ex" data-url="https://github.com/torvalds/linux">torvalds/linux</div>
+    </div>
+  </div>
+</div>
+
 <canvas id="cv"></canvas>
 
 <div id="hud"><div id="hud-title">repo universe</div><div id="hud-sub">paste a github url to begin</div></div>
@@ -628,6 +667,116 @@ function animate(){
   renderer.render(scene,camera);
 }
 animate();
+
+// ─── Intro page ──────────────────────────────────────────────────────────────
+(function(){
+  const ic=document.getElementById('intro-canvas');
+  const ictx=ic.getContext('2d');
+  let iw,ih,iparticles=[];
+  function iResize(){iw=ic.width=ic.offsetWidth;ih=ic.height=ic.offsetHeight;}
+  iResize();window.addEventListener('resize',iResize);
+
+  // Spawn particles
+  for(let i=0;i<180;i++){
+    iparticles.push({
+      x:Math.random()*iw,y:Math.random()*ih,
+      vx:(Math.random()-.5)*.18,vy:(Math.random()-.5)*.18,
+      r:Math.random()*1.4+.2,
+      a:Math.random()*.7+.1,
+      twinkle:Math.random()*Math.PI*2,
+      ts:Math.random()*.02+.005
+    });
+  }
+
+  // Floating nodes for visual
+  const fnodes=[];
+  const fcolors=['#6C63FF','#38bdf8','#22d3a0','#fbbf24','#a78bfa'];
+  for(let i=0;i<12;i++){
+    fnodes.push({
+      x:Math.random()*iw,y:Math.random()*ih,
+      vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,
+      r:4+Math.random()*10,
+      col:fcolors[Math.floor(Math.random()*fcolors.length)],
+      phase:Math.random()*Math.PI*2
+    });
+  }
+
+  let it=0;
+  function iAnimate(){
+    if(!document.getElementById('intro')) return;
+    requestAnimationFrame(iAnimate);
+    it+=0.016;
+    ictx.clearRect(0,0,iw,ih);
+    // Deep space bg
+    ictx.fillStyle='#000008';ictx.fillRect(0,0,iw,ih);
+    // Nebula glow in center
+    const ngrd=ictx.createRadialGradient(iw*.5,ih*.5,0,iw*.5,ih*.5,iw*.45);
+    ngrd.addColorStop(0,'rgba(30,15,80,0.35)');
+    ngrd.addColorStop(0.4,'rgba(20,10,50,0.15)');
+    ngrd.addColorStop(1,'rgba(0,0,8,0)');
+    ictx.fillStyle=ngrd;ictx.fillRect(0,0,iw,ih);
+    // Second nebula offset
+    const ngrd2=ictx.createRadialGradient(iw*.25,ih*.7,0,iw*.25,ih*.7,iw*.3);
+    ngrd2.addColorStop(0,'rgba(15,30,70,0.25)');ngrd2.addColorStop(1,'rgba(0,0,8,0)');
+    ictx.fillStyle=ngrd2;ictx.fillRect(0,0,iw,ih);
+    // Stars
+    iparticles.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0)p.x=iw;if(p.x>iw)p.x=0;if(p.y<0)p.y=ih;if(p.y>ih)p.y=0;
+      const pulse=Math.sin(it*p.ts*60+p.twinkle)*.35+.65;
+      ictx.beginPath();ictx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ictx.fillStyle='rgba(255,255,255,'+(p.a*pulse)+')';ictx.fill();
+    });
+    // Floating nodes + connections
+    fnodes.forEach((n,i)=>{
+      n.x+=n.vx;n.y+=n.vy;
+      if(n.x<-20)n.x=iw+20;if(n.x>iw+20)n.x=-20;
+      if(n.y<-20)n.y=ih+20;if(n.y>ih+20)n.y=-20;
+      const pulse=1+Math.sin(it*1.2+n.phase)*.12;
+      // Glow
+      const rr=parseInt(n.col.slice(1,3),16),gg2=parseInt(n.col.slice(3,5),16),bb=parseInt(n.col.slice(5,7),16);
+      const glow=ictx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r*2.5*pulse);
+      glow.addColorStop(0,'rgba('+rr+','+gg2+','+bb+',0.15)');
+      glow.addColorStop(1,'rgba('+rr+','+gg2+','+bb+',0)');
+      ictx.fillStyle=glow;ictx.beginPath();ictx.arc(n.x,n.y,n.r*2.5*pulse,0,Math.PI*2);ictx.fill();
+      ictx.beginPath();ictx.arc(n.x,n.y,n.r*pulse,0,Math.PI*2);
+      ictx.fillStyle=n.col;ictx.fill();
+      fnodes.forEach((m,j)=>{
+        if(j<=i)return;
+        const dx=m.x-n.x,dy=m.y-n.y,d=Math.sqrt(dx*dx+dy*dy);
+        if(d<200){
+          ictx.beginPath();ictx.moveTo(n.x,n.y);ictx.lineTo(m.x,m.y);
+          ictx.strokeStyle='rgba('+rr+','+gg2+','+bb+','+(0.25*(1-d/200))+')';
+          ictx.lineWidth=0.8;ictx.stroke();
+        }
+      });
+    });
+  }
+  iAnimate();
+
+  function launchRepo(url){
+    if(!url.trim())return;
+    const intro=document.getElementById('intro');
+    intro.classList.add('fade-out');
+    setTimeout(()=>{intro.remove();},850);
+    document.getElementById('url-input').value=url;
+    loadRepo(url);
+  }
+
+  document.getElementById('intro-btn').addEventListener('click',()=>{
+    launchRepo(document.getElementById('intro-url').value);
+  });
+  document.getElementById('intro-url').addEventListener('keydown',e=>{
+    if(e.key==='Enter') launchRepo(e.target.value);
+  });
+  document.querySelectorAll('.intro-ex').forEach(el=>{
+    el.addEventListener('click',()=>{
+      document.getElementById('intro-url').value=el.dataset.url;
+      launchRepo(el.dataset.url);
+    });
+  });
+})();
+
 </script>
 </body>
 </html>
